@@ -18,8 +18,34 @@ class ComprasController extends Controller
 
     //función para post
     public function store(Request $request){
+        if(!$request->header('Authorization')){
+            return abort(401, 'Debe proveer un Token ');
+        }
+
+        $tokenID = $request->idUsuario;
+        $sql = "SELECT au.id, am.cantidad, am.descuento from api_usuario au
+            left JOIN api_monedero am 
+            on au.id = am.usuario_id 
+            WHERE au.id = $tokenID;";
+
+        $user = DB::select($sql);
+
+        if(count($user) !== 1){
+            return abort(401, 'El usuario no existe');
+        }
+
+        $applyDiscount = ($user[0]->descuento !== 0);
+        $precio = $applyDiscount
+            ?($request->precioTotal * $user[0]->descuento)/100
+            :$request->precioTotal;
+        $dineroTotal = $user[0]->cantidad - $precio;
+
+        if($dineroTotal < 0){
+            return abort(500, 'Dinero insuficiente para realizar la compra');
+        }
+
         $newCompra = new Compras;
-        $newCompra->idUsuario = $request->idUsuario;
+        $newCompra->idUsuario = $tokenID;
         $newCompra->precioTotal = $request->precioTotal;
         $newCompra->fechaPedido = $request->fechaPedido;
         $newCompra->fechaEntrega = $request->fechaEntrega;
@@ -34,6 +60,9 @@ class ComprasController extends Controller
             $newArticulo->save();
         }
 
+        $payment = "UPDATE api_monedero SET cantidad=$dineroTotal, descuento=0 WHERE usuario_id = $tokenID;";
+        DB::update($payment);
+
         $articulos = DB::table('articulos')->where('compra', '=', $newCompra->id)->get();
         $compra = array(
             "id"=>$newCompra->id,
@@ -41,7 +70,8 @@ class ComprasController extends Controller
             "precioTotal"=>$newCompra->precioTotal,
             "fechaPedido"=>$newCompra->fechaPedido,
             "fechaEntrega"=>$newCompra->fechaEntrega,
-            "articulos"=>$articulos
+            "articulos"=>$articulos,
+            "descuento"=> $applyDiscount
         );
         return $compra;
     }
