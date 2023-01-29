@@ -15,3 +15,4 @@ use App\Http\Controllers\ComprasController;
 */
 Route::post("compras", "App\Http\Controllers\ComprasController@store");
 Route::get("compras", "App\Http\Controllers\ComprasController@index");
+Route::get("compras/{id}", "App\Http\Controllers\ComprasController@show");

@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateComprasRequest;
 use Illuminate\Http\Request;
 use App\Models\Compras;
 use App\Models\Articulo;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 class ComprasController extends Controller
@@ -23,9 +24,9 @@ class ComprasController extends Controller
         }
 
         $tokenID = $request->idUsuario;
-        $sql = "SELECT au.id, am.cantidad, am.descuento from api_usuario au
-            left JOIN api_monedero am 
-            on au.id = am.usuario_id 
+        $sql = "SELECT au.id, am.cantidad, am.descuento FROM api_usuario au
+            LEFT JOIN api_monedero am 
+            ON au.id = am.usuario_id 
             WHERE au.id = $tokenID;";
 
         $user = DB::select($sql);
@@ -76,46 +77,55 @@ class ComprasController extends Controller
         return $compra;
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  \App\Models\Compras  $compras
-     * @return \Illuminate\Http\Response
-     */
-    public function show(Compras $compras)
-    {
-        //
+
+    //función para get con parámetros
+    public function show($id, Request $request){
+        if(!$request->header('Authorization')){
+            return abort(401, 'Debe proveer un Token ');
+        }
+
+        $sql = "SELECT id, name, username FROM api_usuario 
+            WHERE id = $id;";
+
+        $user = DB::select($sql);
+
+        if(count($user) !== 1){
+            return abort(401, 'El usuario no existe');
+        }
+
+        $compras = DB::table('compras')->where('idUsuario', '=', $id)->get();
+        $response = array();
+
+        foreach ($compras as $cmp) {
+            $articulos = DB::table('articulos')->where('compra', '=', $cmp->id)->get();
+            $compra = array(
+                "id"=>$cmp->id,
+                "idUsuario"=>$cmp->idUsuario,
+                "precioTotal"=>$cmp->precioTotal,
+                "fechaPedido"=>$cmp->fechaPedido,
+                "fechaEntrega"=>$cmp->fechaEntrega,
+                "articulos"=>$articulos
+            );
+            array_push($response, $compra);
+        }
+
+        return $response;
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  \App\Models\Compras  $compras
-     * @return \Illuminate\Http\Response
-     */
+    
+
     public function edit(Compras $compras)
     {
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \App\Http\Requests\UpdateComprasRequest  $request
-     * @param  \App\Models\Compras  $compras
-     * @return \Illuminate\Http\Response
-     */
+   
     public function update(UpdateComprasRequest $request, Compras $compras)
     {
         //
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  \App\Models\Compras  $compras
-     * @return \Illuminate\Http\Response
-     */
+    
     public function destroy(Compras $compras)
     {
         //
